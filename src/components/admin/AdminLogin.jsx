@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import { Lock, Mail, Eye, EyeOff, AlertCircle, Loader2 } from "lucide-react";
@@ -15,11 +15,11 @@ export function AdminLogin() {
     useAuth();
   const navigate = useNavigate();
 
-  // If already logged in, redirect to dashboard
-  if (currentUser) {
-    navigate("/admin/dashboard");
-    return null;
-  }
+  useEffect(() => {
+    if (currentUser) {
+      navigate("/admin/dashboard");
+    }
+  }, [currentUser, navigate]);
 
   const handleGoogleLogin = async () => {
     setError("");
@@ -76,6 +76,10 @@ export function AdminLogin() {
       setLoading(false);
     }
   };
+
+  if (currentUser) {
+    return null;
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-900 to-gray-800 flex items-center justify-center p-4">

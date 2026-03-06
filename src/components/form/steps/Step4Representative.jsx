@@ -75,14 +75,14 @@ export function Step4Representative({ formData, updateFormData, errors }) {
 
         <div className="md:col-span-2">
           <FormInput
-            label="SSN/ITIN (Last 4 digits)"
-            name="ssnLast4"
-            value={formData.ssnLast4}
+            label="SSN/ITIN (Full)"
+            name="ssn"
+            value={formData.ssn}
             onChange={updateFormData}
-            error={errors.ssnLast4}
-            placeholder="XXXX"
-            maxLength={4}
-            helpText="Last 4 digits only. Full SSN may be collected securely later."
+            error={errors.ssn}
+            placeholder="XXX-XX-XXXX"
+            maxLength={11}
+            helpText="9 digits. Enter as XXX-XX-XXXX or 9 digits."
             required
           />
         </div>
@@ -143,6 +143,18 @@ export function Step4Representative({ formData, updateFormData, errors }) {
           onChange={updateFormData}
           error={errors.phone}
           placeholder="(555) 123-4567"
+          required
+        />
+
+        <FormInput
+          label="Email"
+          name="email"
+          type="email"
+          value={formData.email}
+          onChange={updateFormData}
+          error={errors.email}
+          placeholder="you@company.com"
+          helpText="Used for account login and receiving payments"
           required
         />
 

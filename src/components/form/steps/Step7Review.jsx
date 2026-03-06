@@ -111,12 +111,13 @@ export function Step7Review({ formData, goToStep }) {
             .trim()}
         />
         <Field label="Date of Birth" value={formData.dateOfBirth} />
-        <Field label="SSN/ITIN (Last 4)" value={formData.ssnLast4} sensitive />
+        <Field label="SSN/ITIN" value={formData.ssn} />
         <Field
           label="Home Address"
           value={`${formData.homeAddress}, ${formData.homeCity}, ${formData.homeState} ${formData.homeZip}`}
         />
         <Field label="Phone" value={formData.phone} />
+        <Field label="Email" value={formData.email} />
         <Field label="Role" value={formData.role} />
         <Field
           label="Significant Responsibility"
@@ -144,8 +145,8 @@ export function Step7Review({ formData, goToStep }) {
               <Field label="Ownership %" value={`${owner.ownershipPercent}%`} />
               <Field label="Role" value={owner.role} />
               <Field label="Phone" value={owner.phone} />
-              {owner.ssnLast4 && (
-                <Field label="SSN (Last 4)" value={owner.ssnLast4} sensitive />
+              {owner.ssn && (
+                <Field label="SSN/ITIN" value={owner.ssn} />
               )}
             </div>
           ))}

@@ -7,6 +7,7 @@ import {
   query,
   doc,
   updateDoc,
+  setDoc,
 } from "firebase/firestore";
 import { db } from "../../config/firebase";
 import { useAuth } from "../../context/AuthContext";
@@ -21,13 +22,16 @@ import {
   Users,
   FileText,
   Loader2,
+  Send,
 } from "lucide-react";
+import { generateToken } from "../ssn/SSNCompletion";
 
 export function AdminDashboard() {
   const [submissions, setSubmissions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedSubmission, setSelectedSubmission] = useState(null);
   const [refreshing, setRefreshing] = useState(false);
+  const [resendingFor, setResendingFor] = useState(null);
 
   const { logout, currentUser } = useAuth();
   const navigate = useNavigate();
@@ -68,6 +72,67 @@ export function AdminDashboard() {
       navigate("/admin");
     } catch (error) {
       console.error("Logout error:", error);
+    }
+  };
+
+  const handleResendForSSN = async (submission) => {
+    setResendingFor(submission.id);
+    try {
+      const token = generateToken();
+      const baseUrl = window.location.origin;
+      const link = `${baseUrl}/complete-ssn/${token}`;
+      const expiresAt = new Date();
+      expiresAt.setDate(expiresAt.getDate() + 7);
+
+      // Only include defined values - Firestore rejects undefined
+      const displayData = {};
+      if (submission.legalBusinessName != null)
+        displayData.legalBusinessName = submission.legalBusinessName;
+      if (submission.ein != null) displayData.ein = submission.ein;
+      if (submission.doingBusinessAs != null)
+        displayData.doingBusinessAs = submission.doingBusinessAs;
+      if (submission.firstName != null) displayData.firstName = submission.firstName;
+      if (submission.middleName != null) displayData.middleName = submission.middleName;
+      if (submission.lastName != null) displayData.lastName = submission.lastName;
+      if (submission.phone != null) displayData.phone = submission.phone;
+      if (submission.email != null) displayData.email = submission.email;
+      if (submission.homeAddress != null) {
+        displayData.homeAddress = [
+          submission.homeAddress,
+          submission.homeCity,
+          submission.homeState,
+          submission.homeZip,
+        ]
+          .filter(Boolean)
+          .join(", ");
+      }
+      if (submission.additionalOwners?.length > 0) {
+        displayData.additionalOwners = submission.additionalOwners
+          .map((o) => (o.name != null ? { name: o.name } : null))
+          .filter(Boolean);
+      }
+
+      await setDoc(doc(db, "ssnCompletionLinks", token), {
+        submissionId: submission.id,
+        displayData,
+        expiresAt,
+        used: false,
+      });
+
+      await updateDoc(doc(db, "businessSubmissions", submission.id), {
+        ssnCompletionToken: token,
+        ssnTokenExpiresAt: expiresAt,
+      });
+
+      await navigator.clipboard.writeText(link);
+      alert(
+        "Link copied to clipboard! Send this to the submitter so they can enter their full SSN and email.\n\nLink expires in 7 days."
+      );
+    } catch (err) {
+      console.error("Error generating resend link:", err);
+      alert("Failed to generate link. Please try again.");
+    } finally {
+      setResendingFor(null);
     }
   };
 
@@ -316,14 +381,23 @@ export function AdminDashboard() {
           submission={selectedSubmission}
           onClose={() => setSelectedSubmission(null)}
           onMarkReviewed={handleMarkReviewed}
+          onResendForSSN={handleResendForSSN}
           formatDate={formatDate}
+          resendingFor={resendingFor}
         />
       )}
     </div>
   );
 }
 
-function SubmissionDetail({ submission, onClose, onMarkReviewed, formatDate }) {
+function SubmissionDetail({
+  submission,
+  onClose,
+  onMarkReviewed,
+  onResendForSSN,
+  formatDate,
+  resendingFor,
+}) {
   const Section = ({ title, children }) => (
     <div className="mb-6">
       <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-3">
@@ -408,12 +482,13 @@ function SubmissionDetail({ submission, onClose, onMarkReviewed, formatDate }) {
             />
             <Field label="Country" value={submission.countryOfResidence} />
             <Field label="DOB" value={submission.dateOfBirth} />
-            <Field label="SSN (Last 4)" value={submission.ssnLast4} sensitive />
+            <Field label="SSN" value={submission.ssn || submission.ssnLast4} />
             <Field
               label="Home Address"
               value={`${submission.homeAddress}, ${submission.homeCity}, ${submission.homeState} ${submission.homeZip}`}
             />
             <Field label="Phone" value={submission.phone} />
+            <Field label="Email" value={submission.email} />
             <Field label="Role" value={submission.role} />
             <Field
               label="Significant Responsibility"
@@ -441,12 +516,8 @@ function SubmissionDetail({ submission, onClose, onMarkReviewed, formatDate }) {
                   />
                   <Field label="Role" value={owner.role} />
                   <Field label="Phone" value={owner.phone} />
-                  {owner.ssnLast4 && (
-                    <Field
-                      label="SSN (Last 4)"
-                      value={owner.ssnLast4}
-                      sensitive
-                    />
+                  {(owner.ssn || owner.ssnLast4) && (
+                    <Field label="SSN" value={owner.ssn || owner.ssnLast4} />
                   )}
                 </div>
               ))}
@@ -455,11 +526,7 @@ function SubmissionDetail({ submission, onClose, onMarkReviewed, formatDate }) {
 
           <Section title="Bank Account">
             <Field label="Routing Number" value={submission.routingNumber} />
-            <Field
-              label="Account Number"
-              value={submission.accountNumber}
-              sensitive
-            />
+            <Field label="Account Number" value={submission.accountNumber} />
           </Section>
 
           <Section title="Submission Info">
@@ -474,19 +541,33 @@ function SubmissionDetail({ submission, onClose, onMarkReviewed, formatDate }) {
           </Section>
         </div>
 
-        <div className="px-6 py-4 border-t border-gray-200 flex justify-end gap-3 flex-shrink-0">
-          {!submission.reviewed && (
-            <button
-              onClick={() => onMarkReviewed(submission.id)}
-              className="btn-primary inline-flex items-center gap-2"
-            >
-              <CheckCircle className="w-4 h-4" />
-              Mark as Reviewed
-            </button>
-          )}
-          <button onClick={onClose} className="btn-secondary">
-            Close
+        <div className="px-6 py-4 border-t border-gray-200 flex justify-between flex-wrap gap-3 flex-shrink-0">
+          <button
+            onClick={() => onResendForSSN(submission)}
+            disabled={resendingFor === submission.id}
+            className="btn-secondary inline-flex items-center gap-2"
+          >
+            {resendingFor === submission.id ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              <Send className="w-4 h-4" />
+            )}
+            Resend for SSN &amp; Email
           </button>
+          <div className="flex gap-3">
+            {!submission.reviewed && (
+              <button
+                onClick={() => onMarkReviewed(submission.id)}
+                className="btn-primary inline-flex items-center gap-2"
+              >
+                <CheckCircle className="w-4 h-4" />
+                Mark as Reviewed
+              </button>
+            )}
+            <button onClick={onClose} className="btn-secondary">
+              Close
+            </button>
+          </div>
         </div>
       </div>
     </div>

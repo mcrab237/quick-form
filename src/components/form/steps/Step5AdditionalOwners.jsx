@@ -146,16 +146,16 @@ export function Step5AdditionalOwners({
                 />
 
                 <FormInput
-                  label="SSN/ITIN (Last 4)"
+                  label="SSN/ITIN (Full)"
                   name={`owner-${owner.id}-ssn`}
-                  value={owner.ssnLast4}
+                  value={owner.ssn}
                   onChange={(_, value) =>
-                    handleOwnerChange(owner.id, "ssnLast4", value)
+                    handleOwnerChange(owner.id, "ssn", value)
                   }
                   error={errors[`owner-${owner.id}-ssn`]}
-                  placeholder="XXXX"
-                  maxLength={4}
-                  helpText="Last 4 digits only"
+                  placeholder="XXX-XX-XXXX"
+                  maxLength={11}
+                  helpText="9 digits. Enter as XXX-XX-XXXX or 9 digits."
                 />
               </div>
             </div>

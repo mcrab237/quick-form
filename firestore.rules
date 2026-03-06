@@ -6,27 +6,13 @@ service cloud.firestore {
     function isAuthenticated() {
       return request.auth != null;
     }
-    
-    // Helper: Check if user is admin
-    function isAdmin() {
-      return isAuthenticated() 
-             && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == "admin";
-    }
 
     // -----------------------------------------------------------------------
     // BUSINESS SUBMISSIONS COLLECTION - Secure Business Form Data
     // -----------------------------------------------------------------------
-    // Stores business information submitted through the public form
-    // - Anyone can CREATE (submit the form)
-    // - Only authenticated admins can READ
-    // - Only authenticated admins can UPDATE (mark as reviewed, etc.)
-    // - Only authenticated admins can DELETE
     match /businessSubmissions/{submissionId} {
-      // Only admins can read submissions
       allow read: if isAuthenticated();
       
-      // Anyone can create a submission (public form)
-      // Validate required fields are present
       allow create: if request.resource.data.keys().hasAll([
         'businessType',
         'legalBusinessName',
@@ -46,11 +32,29 @@ service cloud.firestore {
       && request.resource.data.status == 'pending'
       && request.resource.data.reviewed == false;
       
-      // Only authenticated users can update (for marking as reviewed)
-      allow update: if isAuthenticated();
+      // Admins can update. Unauthenticated users can update ONLY when completing
+      // SSN via resend link: token must match, not expired, and only ssn/email/ssnTokenUsedAt/__tokenVerify allowed
+      allow update: if isAuthenticated()
+        || (resource.data.ssnCompletionToken != null
+            && resource.data.ssnCompletionToken == request.resource.data.__tokenVerify
+            && resource.data.ssnTokenExpiresAt != null
+            && resource.data.ssnTokenExpiresAt > request.time
+            && !("ssnTokenUsedAt" in resource.data)
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['ssn', 'email', 'ssnTokenUsedAt', '__tokenVerify']));
       
-      // Only authenticated users can delete
       allow delete: if isAuthenticated();
+    }
+
+    // -----------------------------------------------------------------------
+    // SSN COMPLETION LINKS - Public read by token (doc ID = unguessable token)
+    // -----------------------------------------------------------------------
+    // Created by admin when "Resend for SSN" is clicked.
+    // Anyone with the token can read (to load the completion page).
+    // Modify as needed for production (e.g., add backend to validate token).
+    match /ssnCompletionLinks/{token} {
+      allow read: if true;
+      allow create: if isAuthenticated();
+      allow update, delete: if isAuthenticated();
     }
   }
 }

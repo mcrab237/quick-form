@@ -4,6 +4,7 @@ import { MultiStepForm } from "./components/form/MultiStepForm";
 import { AdminLogin } from "./components/admin/AdminLogin";
 import { AdminDashboard } from "./components/admin/AdminDashboard";
 import { ProtectedRoute } from "./components/admin/ProtectedRoute";
+import { SSNCompletion } from "./components/ssn/SSNCompletion";
 
 function App() {
   return (
@@ -12,6 +13,9 @@ function App() {
         <Routes>
           {/* Public form route */}
           <Route path="/" element={<MultiStepForm />} />
+
+          {/* SSN completion - public link sent by admin */}
+          <Route path="/complete-ssn/:token" element={<SSNCompletion />} />
 
           {/* Admin routes */}
           <Route path="/admin" element={<AdminLogin />} />

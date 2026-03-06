@@ -75,10 +75,11 @@ export function validateStep(step, formData) {
       if (!formData.dateOfBirth) {
         errors.dateOfBirth = "Date of birth is required";
       }
-      if (!formData.ssnLast4?.trim()) {
-        errors.ssnLast4 = "Last 4 digits of SSN/ITIN are required";
-      } else if (!/^\d{4}$/.test(formData.ssnLast4)) {
-        errors.ssnLast4 = "Must be exactly 4 digits";
+      const ssnDigits = formData.ssn?.replace(/-/g, "");
+      if (!formData.ssn?.trim()) {
+        errors.ssn = "SSN/ITIN is required";
+      } else if (!/^\d{9}$/.test(ssnDigits)) {
+        errors.ssn = "SSN must be 9 digits (e.g. XXX-XX-XXXX)";
       }
       if (!formData.homeAddress?.trim()) {
         errors.homeAddress = "Home address is required";
@@ -94,6 +95,11 @@ export function validateStep(step, formData) {
       }
       if (!formData.phone?.trim()) {
         errors.phone = "Phone is required";
+      }
+      if (!formData.email?.trim()) {
+        errors.email = "Email is required";
+      } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
+        errors.email = "Please enter a valid email address";
       }
       if (!formData.role?.trim()) {
         errors.role = "Role/job title is required";
@@ -132,6 +138,13 @@ export function validateStep(step, formData) {
         }
         if (!owner.phone?.trim()) {
           errors[`owner-${owner.id}-phone`] = "Phone is required";
+        }
+        if (owner.ssn?.trim()) {
+          const ownerSsnDigits = owner.ssn.replace(/-/g, "");
+          if (!/^\d{9}$/.test(ownerSsnDigits)) {
+            errors[`owner-${owner.id}-ssn`] =
+              "SSN must be 9 digits (e.g. XXX-XX-XXXX)";
+          }
         }
       });
       break;
